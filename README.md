@@ -77,7 +77,8 @@ Swipe can take an optional second parameter– an object of key/value settings:
 - **autoRestart** Boolean *(default: `true`)*: auto restart slideshow after user's touch event or next/prev calls.
 - **disableScroll** Boolean *(default: `false`)*: prevent any touch events on this container from scrolling the page.
 - **stopPropagation** Boolean *(default: `false`)*: stop event propagation.
-- **callback** Function *(default: `function() {}`)*: runs at slide change.
+- **callback** Function *(default: `function() {}`)*: runs after a slide change.
+- **startSlidingCallback** Function *(default: `function() {}`)*: at the beginning of a slide change.
 - **transitionEnd** Function *(default: `function() {}`)*: runs at the end of a slide transition.
 
 ### Example

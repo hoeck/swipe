@@ -355,7 +355,10 @@
           y: touches.pageY,
 
           // store time to determine touch duration
-          time: +new Date()
+          time: +new Date(),
+
+          // the touched element, passed to startSlidingCallback
+          target: touches.target
 
         };
 
@@ -407,6 +410,13 @@
 
         // if user is not trying to scroll vertically
         if (!isScrolling) {
+
+          // invoke startSlidingCallback, useful to build the slides content lazily
+          if (options.startSlidingCallback) {
+            setTimeout(function () {
+              options.startSlidingCallback(getPos(), start.target);
+            }, 0);
+          }
 
           // prevent native scrolling
           event.preventDefault();
