@@ -33,6 +33,9 @@
 
     // utilities
     var noop = function() {}; // simple no operation function
+
+    // ???, this is never used correctly, always 'offloading' the returned value
+    // offloadFn(func(arg)) instead of the function to call offloadFn(func, arg)
     var offloadFn = function(fn) { setTimeout(fn || noop, 0); }; // offload a functions execution
 
     // check browser capabilities
@@ -311,6 +314,8 @@
     var start = {};
     var delta = {};
     var isScrolling;
+    var isSlidingLeftAllowed = true; // modified by startSlidingCallback
+    var isSlidingRightAllowed = true;
 
     // setup event capturing
     var events = {
@@ -338,7 +343,7 @@
 
       },
       start: function(event) {
-        var touches;
+        var touches, callbackResponse;
 
         if (isMouseEvent(event)) {
           touches = event;
@@ -355,12 +360,13 @@
           y: touches.pageY,
 
           // store time to determine touch duration
-          time: +new Date(),
-
-          // the touched element, passed to startSlidingCallback
-          target: touches.target
-
+          time: +new Date()
         };
+
+        // the callback may decide whether scrolling to the left or right is allowed
+        callbackResponse = (options.startSlidingCallback || noop)(touches.target);
+        isSlidingLeftAllowed = (callbackResponse || {allowSlidingLeft: true}).allowSlidingLeft;
+        isSlidingRightAllowed = (callbackResponse || {allowSlidingRight: true}).allowSlidingRight;
 
         // used for testing first move event
         isScrolling = undefined;
@@ -411,13 +417,6 @@
         // if user is not trying to scroll vertically
         if (!isScrolling) {
 
-          // invoke startSlidingCallback, useful to build the slides content lazily
-          if (options.startSlidingCallback) {
-            setTimeout(function () {
-              options.startSlidingCallback(getPos(), start.target);
-            }, 0);
-          }
-
           // prevent native scrolling
           event.preventDefault();
 
@@ -433,14 +432,21 @@
 
           } else {
 
-            delta.x =
-              delta.x /
-                ( (!index && delta.x > 0 ||             // if first slide and sliding left
-                  index === slides.length - 1 &&        // or if last slide and sliding right
-                  delta.x < 0                           // and if sliding at all
-                ) ?
-                ( Math.abs(delta.x) / width + 1 )      // determine resistance level
-                : 1 );                                 // no resistance if false
+            // sliding direction === direction where the new slide comes from
+            // - move thumb to the right - swipeRight - new slide comes from the left - slideLeft - delta.x > 0
+            // - move thumb to the left - swipeLeft - new slide comes from the right - slideRight - delta.x < 0
+            var isSlidingLeft = delta.x > 0;
+            var isSlidingRight = delta.x < 0;
+            var isFirstSlide = !index;
+            var isLastSlide = index === (slides.length - 1);
+
+            var applyResistance =
+                  (isSlidingLeft && (isFirstSlide || !isSlidingLeftAllowed)) ||
+                  (isSlidingRight && (isLastSlide || !isSlidingRightAllowed));
+
+            if (applyResistance) {
+              delta.x = delta.x / (Math.abs(delta.x) / width + 1);
+            }
 
             // translate 1:1
             translate(index-1, delta.x + slidePos[index-1], 0);
@@ -471,13 +477,18 @@
           isPastBounds = false;
         }
 
+        // determine if sliding is allowed
+        var isSlidingAllowed =
+              (0 < delta.x && isSlidingLeftAllowed) ||
+              (delta.x < 0 && isSlidingRightAllowed);
+
         // determine direction of swipe (true:right, false:left)
         var direction = delta.x < 0;
 
         // if not scrolling vertically
         if (!isScrolling) {
 
-          if (isValidSlide && !isPastBounds) {
+          if (isValidSlide && !isPastBounds && isSlidingAllowed) {
 
             if (direction) {
 
